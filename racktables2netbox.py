@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 import argparse
 import configparser
@@ -2836,30 +2836,28 @@ def netbox_purge_data(config, netbox):
         )
         pg_conn.autocommit = True
         with pg_conn.cursor() as cur:
-            # NetBox バージョンを確認して TRUNCATE 対象テーブルを決定
-            try:
-                from packaging.version import Version
-                _nb_ver = netbox.status().get("netbox-version", "0.0.0")
-                _use_mac_model = Version(_nb_ver) >= Version("4.2.0")
-            except Exception:
-                _use_mac_model = False
+            # 保持するテーブルプレフィックス（ユーザー認証・権限情報およびDjangoシステムテーブル）
+            # users_*, auth_*, django_* 以外の全テーブル（extras_customfield等を含む）を動的に取得して初期化
+            exclude_prefixes = ('users_', 'auth_', 'django_')
 
-            tables = [
-                "dcim_cable",
-                "ipam_ipaddress", "ipam_prefix", "ipam_vlan", "ipam_vlangroup",
-                "dcim_interface",
-                "virtualization_vminterface", "virtualization_virtualmachine",
-                "virtualization_cluster", "virtualization_clustergroup", "virtualization_clustertype",
-                "dcim_device", "dcim_devicetype", "dcim_devicerole", "dcim_rack",
-                "dcim_location", "dcim_site", "dcim_manufacturer", "extras_tag"
+            cur.execute("""
+                SELECT tablename 
+                FROM pg_tables 
+                WHERE schemaname = 'public';
+            """)
+            all_tables = [row[0] for row in cur.fetchall()]
+
+            target_tables = [
+                tbl for tbl in all_tables
+                if not any(tbl.startswith(pfx) for pfx in exclude_prefixes)
             ]
-            # NetBox 4.2+ は dcim_macaddress テーブルも存在する
-            if _use_mac_model:
-                tables.insert(tables.index("dcim_interface"), "dcim_macaddress")
-                logger.info(f"NetBox {_nb_ver}: Adding dcim_macaddress to TRUNCATE list.")
-            truncate_sql = f"TRUNCATE TABLE {', '.join(tables)} RESTART IDENTITY CASCADE;"
-            cur.execute(truncate_sql)
-            logger.info("Successfully truncated NetBox PostgreSQL tables.")
+
+            if target_tables:
+                truncate_sql = f"TRUNCATE TABLE {', '.join(target_tables)} RESTART IDENTITY CASCADE;"
+                cur.execute(truncate_sql)
+                logger.info(f"Successfully truncated {len(target_tables)} NetBox tables with RESTART IDENTITY (auth/django preserved).")
+            else:
+                logger.warning("No tables matched for truncation.")
         pg_conn.close()
 
         # Flush Redis Cache

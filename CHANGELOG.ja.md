@@ -6,6 +6,14 @@ English: [CHANGELOG.md](CHANGELOG.md)
 
 形式は [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) に準拠し、バージョニングは [セマンティックバージョニング（Semantic Versioning）](https://semver.org/spec/v2.0.0.html) に従う。
 
+## [1.1.1] - 2026-10-12
+
+### 変更（Changed）
+- **動的テーブル指定によるPostgreSQLデータ初期化（`netbox_purge_data`）**：
+  - 静的なテーブルリスト指定から、PostgreSQLの `pg_tables`（`schemaname = 'public'`）を参照した動的テーブル抽出方式へ変更し、`users_*`、`auth_*`、`django_*` を除く全テーブルを一括で `TRUNCATE TABLE ... RESTART IDENTITY CASCADE` するよう更新した。
+- **移行実行コンテナ（`Dockerfile.runner`）**：
+  - Oracle Linux 10 の移行実行コンテナイメージに `tzdata` パッケージを追加した。
+
 ## [1.1.0] - 2026-10-11
 
 ### 追加（Added）
