@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import imp
+import configparser
 import sys
 import json
 import requests
@@ -11,8 +11,11 @@ import logging
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Load config file into variable
-conf = imp.load_source('conf', 'conf')
-api_url_base = "{}/api".format(conf.NETBOX_HOST)
+configfile = 'conf'
+config = configparser.ConfigParser()
+config.read(configfile)
+
+api_url_base = "{}/api".format(config['NetBox']['NETBOX_HOST'])
 
 def api_request(method, url):
     # Log which request we're trying to do
@@ -54,7 +57,7 @@ if __name__ == '__main__':
     logger.setLevel(logging.DEBUG)
 
     # Log to file
-    fh = logging.FileHandler(conf.CLEAN_LOG)
+    fh = logging.FileHandler(config['Log']['CLEAN_LOG'])
     fh.setLevel(logging.DEBUG)
 
     # Log to stdout
@@ -79,7 +82,7 @@ if __name__ == '__main__':
     # Define REST Headers
     headers = {'Content-Type': 'application/json', 
         'Accept': 'application/json; indent=4',
-        'Authorization': 'Token {0}'.format(conf.NETBOX_TOKEN)}
+        'Authorization': 'Token {0}'.format(config['NetBox']['NETBOX_TOKEN'])}
 
     s.headers.update(headers)
 

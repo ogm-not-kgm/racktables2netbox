@@ -1,3 +1,13 @@
-PyMySQL==1.0.2
-pynetbox==5.3.1
-slugify==0.0.1
+PyMySQL>=1.0.2
+pynetbox>=5.3.1
+python-slugify>=8.0.0
+psycopg2-binary>=2.9.0
+PyYAML>=6.0
+GitPython>=3.1.32
+python-dotenv>=1.0.0
+packaging>=21.0
+
+
+
+
+

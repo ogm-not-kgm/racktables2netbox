@@ -1,0 +1,101 @@
+services:
+  # ====== RackTables DB (MySQL 8.0) ======
+  racktables-db:
+    image: mysql:8.0
+    container_name: racktables-db
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: racktables_db
+      MYSQL_USER: netbox
+      MYSQL_PASSWORD: PASSWORD
+    ports:
+      - "23306:3306"
+    volumes:
+      - ./dump_data:/docker-entrypoint-initdb.d:ro
+      - racktables-db-data:/var/lib/mysql
+
+  # ====== NetBox Stack ======
+  postgres:
+    image: postgres:16-alpine
+    container_name: netbox-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: netbox
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD: netboxpassword
+    volumes:
+      - netbox-postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: netbox-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - netbox-redis-data:/data
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: netbox-redis-cache
+    restart: unless-stopped
+
+  netbox-app:
+    image: netboxcommunity/netbox:latest
+    container_name: netbox-app
+    hostname: netbox-app
+    restart: unless-stopped
+    ports:
+      - "8000:8080"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: netboxpassword
+      REDIS_HOST: redis
+      REDIS_CACHE_HOST: redis-cache
+      SECRET_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      API_TOKEN_PEPPER_1: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      ALLOWED_HOSTS: '*'
+      # 外部認証（LDAPなど）の切り替えスイッチ (デフォルト: 無効)
+      REMOTE_AUTH_ENABLED: 'false'
+      # REMOTE_AUTH_BACKEND: 'netbox.authentication.LDAPBackend'
+      # 初期管理者（スーパーユーザー）およびAPIトークンを自動作成する場合はコメントを外してください。
+      # ※既存ユーザーが存在する環境ではコメントアウトのまま（無効）にしてください。
+      SUPERUSER_NAME: admin
+      SUPERUSER_EMAIL: admin@example.com
+      SUPERUSER_PASSWORD: adminpassword
+      SUPERUSER_API_TOKEN: '0123456789abcdef0123456789abcdef01234567'
+    # LDAP設定を外部ファイルから読み込む場合は、以下のコメントを外して ldap.env を作成・編集してください。
+    # env_file:
+    #   - ./ldap.env
+    depends_on:
+      - postgres
+      - redis
+      - redis-cache
+    volumes:
+      - netbox-media-files:/opt/netbox/netbox/media
+      - netbox-reports-files:/opt/netbox/netbox/reports
+      - netbox-scripts-files:/opt/netbox/netbox/scripts
+
+  # ====== OL10 Migration Runner ======
+  ol10-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.runner
+    container_name: ol10-runner
+    restart: unless-stopped
+    volumes:
+      - .:/app:z
+    depends_on:
+      - racktables-db
+      - netbox-app
+
+volumes:
+  racktables-db-data:
+  netbox-postgres-data:
+  netbox-redis-data:
+  netbox-media-files:
+  netbox-reports-files:
+  netbox-scripts-files:
